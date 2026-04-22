@@ -1,0 +1,627 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TokenSmart Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --bg: #0f0f0f;
+      --panel: #151515;
+      --panel-2: #1a1a1a;
+      --text: #e8f5ee;
+      --muted: #9bb5a6;
+      --accent: #00ff88;
+      --accent-soft: rgba(0, 255, 136, 0.14);
+      --border: #232323;
+      --danger: #ff5c5c;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "Trebuchet MS", "Verdana", sans-serif;
+      background:
+        radial-gradient(circle at 0% 0%, rgba(0, 255, 136, 0.08), transparent 35%),
+        radial-gradient(circle at 100% 100%, rgba(0, 255, 136, 0.04), transparent 40%),
+        var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 28px;
+    }
+
+    .container {
+      width: min(1200px, 100%);
+      margin: 0 auto;
+      display: grid;
+      gap: 18px;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      padding: 18px 20px;
+      background: linear-gradient(135deg, #121212, #171717);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      box-shadow: 0 0 0 1px rgba(0, 255, 136, 0.05) inset;
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: 28px;
+      letter-spacing: 0.4px;
+      color: var(--accent);
+      text-shadow: 0 0 18px rgba(0, 255, 136, 0.15);
+    }
+
+    .brand p {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .pulse {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--muted);
+      background: #101010;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 8px 12px;
+    }
+
+    .pulse-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 0 0 rgba(0, 255, 136, 0.7);
+      animation: ping 1.6s infinite;
+    }
+
+    @keyframes ping {
+      0% { box-shadow: 0 0 0 0 rgba(0, 255, 136, 0.55); }
+      70% { box-shadow: 0 0 0 10px rgba(0, 255, 136, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(0, 255, 136, 0); }
+    }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .card {
+      background: linear-gradient(160deg, var(--panel), var(--panel-2));
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px;
+      min-height: 98px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .card-title {
+      font-size: 12px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.9px;
+    }
+
+    .card-value {
+      font-size: 30px;
+      line-height: 1;
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 1.3fr 1fr;
+      gap: 14px;
+    }
+
+    .panel {
+      background: linear-gradient(160deg, var(--panel), var(--panel-2));
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .panel h2 {
+      margin: 0;
+      font-size: 18px;
+      letter-spacing: 0.3px;
+    }
+
+    .chat-grid {
+      display: grid;
+      gap: 10px;
+    }
+
+    .input-label {
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 130px;
+      resize: vertical;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: #0d0d0d;
+      color: var(--text);
+      padding: 12px;
+      font: inherit;
+      outline: none;
+      transition: border-color 0.18s ease, box-shadow 0.18s ease;
+    }
+
+    textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-soft);
+    }
+
+    .button-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      border: none;
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-weight: 700;
+      cursor: pointer;
+      background: var(--accent);
+      color: #07140d;
+      transition: transform 0.15s ease, filter 0.15s ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      filter: brightness(1.06);
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.6;
+      transform: none;
+    }
+
+    .status {
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .response-box {
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: #0d0d0d;
+      padding: 12px;
+      min-height: 140px;
+      white-space: pre-wrap;
+      line-height: 1.45;
+      color: #ddfbe9;
+    }
+
+    .savings-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .mini {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px;
+      background: #111;
+      display: grid;
+      gap: 4px;
+    }
+
+    .mini-label {
+      font-size: 12px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.7px;
+    }
+
+    .mini-value {
+      font-size: 20px;
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    .error {
+      color: var(--danger);
+      font-size: 13px;
+    }
+
+    .chart-wrap {
+      height: 330px;
+      position: relative;
+    }
+
+    footer {
+      color: var(--muted);
+      font-size: 12px;
+      text-align: right;
+    }
+
+    @media (max-width: 980px) {
+      .cards {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 600px) {
+      body {
+        padding: 16px;
+      }
+
+      .header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .cards {
+        grid-template-columns: 1fr;
+      }
+
+      .savings-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .card-value {
+        font-size: 26px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <section class="header">
+      <div class="brand">
+        <h1>TokenSmart</h1>
+        <p>AI Cost Optimization Layer</p>
+      </div>
+      <div class="pulse">
+        <span class="pulse-dot"></span>
+        <span id="lastRefresh">Waiting for first stats refresh...</span>
+      </div>
+    </section>
+
+    <section class="cards">
+      <article class="card">
+        <div class="card-title">Total API Calls</div>
+        <div id="statCalls" class="card-value">0</div>
+      </article>
+      <article class="card">
+        <div class="card-title">Tokens Saved</div>
+        <div id="statTokens" class="card-value">0</div>
+      </article>
+      <article class="card">
+        <div class="card-title">Money Saved ($)</div>
+        <div id="statMoney" class="card-value">0.00</div>
+      </article>
+      <article class="card">
+        <div class="card-title">Cache Hit Rate</div>
+        <div id="statHitRate" class="card-value">0%</div>
+      </article>
+    </section>
+
+    <section class="layout">
+      <article class="panel">
+        <h2>Live Chat Tester</h2>
+        <div class="chat-grid">
+          <label class="input-label" for="promptInput">Prompt</label>
+          <textarea id="promptInput" placeholder="Type a prompt to test compression, routing, and caching..."></textarea>
+          <div class="button-row">
+            <button id="sendBtn" type="button">Send</button>
+            <span id="chatStatus" class="status">Idle</span>
+          </div>
+          <div id="chatError" class="error"></div>
+          <div class="input-label">Response</div>
+          <div id="responseBox" class="response-box"></div>
+          <div class="input-label">Savings Breakdown</div>
+          <div class="savings-grid">
+            <div class="mini">
+              <div class="mini-label">Tokens Saved</div>
+              <div id="savedTokensValue" class="mini-value">0</div>
+            </div>
+            <div class="mini">
+              <div class="mini-label">Model Used</div>
+              <div id="modelUsedValue" class="mini-value">-</div>
+            </div>
+            <div class="mini">
+              <div class="mini-label">Cache Hit</div>
+              <div id="cacheHitValue" class="mini-value">No</div>
+            </div>
+            <div class="mini">
+              <div class="mini-label">Money Saved ($)</div>
+              <div id="moneySavedValue" class="mini-value">0.00000000</div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article class="panel">
+        <h2>Daily Savings</h2>
+        <div class="chart-wrap">
+          <canvas id="savingsChart"></canvas>
+        </div>
+      </article>
+    </section>
+
+    <footer>
+      Data source: /api/stats refreshed every 5 seconds.
+    </footer>
+  </main>
+
+  <script>
+    const statsEls = {
+      totalCalls: document.getElementById("statCalls"),
+      totalSavedTokens: document.getElementById("statTokens"),
+      totalMoneySaved: document.getElementById("statMoney"),
+      cacheHitRate: document.getElementById("statHitRate"),
+      lastRefresh: document.getElementById("lastRefresh")
+    };
+
+    const chatEls = {
+      promptInput: document.getElementById("promptInput"),
+      sendBtn: document.getElementById("sendBtn"),
+      chatStatus: document.getElementById("chatStatus"),
+      chatError: document.getElementById("chatError"),
+      responseBox: document.getElementById("responseBox"),
+      savedTokensValue: document.getElementById("savedTokensValue"),
+      modelUsedValue: document.getElementById("modelUsedValue"),
+      cacheHitValue: document.getElementById("cacheHitValue"),
+      moneySavedValue: document.getElementById("moneySavedValue")
+    };
+
+    const DAILY_SERIES_STORAGE_KEY = "tokensmartDailySeriesV1";
+
+    function formatNumber(value) {
+      return new Intl.NumberFormat().format(Number(value) || 0);
+    }
+
+    function formatMoney(value) {
+      return (Number(value) || 0).toFixed(8);
+    }
+
+    function dayKeyFromDate(dateObj) {
+      const y = dateObj.getFullYear();
+      const m = String(dateObj.getMonth() + 1).padStart(2, "0");
+      const d = String(dateObj.getDate()).padStart(2, "0");
+      return `${y}-${m}-${d}`;
+    }
+
+    function getLast7DaysKeys() {
+      const keys = [];
+      const now = new Date();
+      for (let i = 6; i >= 0; i -= 1) {
+        const dt = new Date(now);
+        dt.setDate(now.getDate() - i);
+        keys.push(dayKeyFromDate(dt));
+      }
+      return keys;
+    }
+
+    function loadDailySeries() {
+      try {
+        const raw = localStorage.getItem(DAILY_SERIES_STORAGE_KEY);
+        const parsed = raw ? JSON.parse(raw) : {};
+        return parsed && typeof parsed === "object" ? parsed : {};
+      } catch (error) {
+        return {};
+      }
+    }
+
+    function saveDailySeries(series) {
+      localStorage.setItem(DAILY_SERIES_STORAGE_KEY, JSON.stringify(series));
+    }
+
+    function updateDailySeriesWithTotal(totalMoneySaved) {
+      const series = loadDailySeries();
+      const today = dayKeyFromDate(new Date());
+      const current = Number(series[today]) || 0;
+      const incoming = Number(totalMoneySaved) || 0;
+      if (incoming > current) {
+        series[today] = incoming;
+      }
+      saveDailySeries(series);
+      return series;
+    }
+
+    function buildDailySavingsValuesFromSeries(series) {
+      const days = getLast7DaysKeys();
+      const totals = days.map((day) => Number(series[day]) || 0);
+      const values = totals.map((total, index) => {
+        if (index === 0) {
+          return Number(total.toFixed(8));
+        }
+        const delta = total - totals[index - 1];
+        return Number(Math.max(delta, 0).toFixed(8));
+      });
+      return { days, values };
+    }
+
+    const chartCanvas = document.getElementById("savingsChart");
+    let savingsChart = null;
+
+    if (window.Chart && chartCanvas) {
+      const chartCtx = chartCanvas.getContext("2d");
+      savingsChart = new Chart(chartCtx, {
+        type: "bar",
+        data: {
+          labels: [],
+          datasets: [{
+            label: "Money Saved ($)",
+            data: [],
+            borderWidth: 1,
+            borderColor: "#00ff88",
+            backgroundColor: "rgba(0, 255, 136, 0.28)",
+            hoverBackgroundColor: "rgba(0, 255, 136, 0.45)",
+            borderRadius: 8,
+            maxBarThickness: 36
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              labels: {
+                color: "#9bb5a6"
+              }
+            },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => `$${Number(ctx.raw).toFixed(8)}`
+              }
+            }
+          },
+          scales: {
+            x: {
+              ticks: {
+                color: "#9bb5a6"
+              },
+              grid: {
+                color: "rgba(255,255,255,0.04)"
+              }
+            },
+            y: {
+              beginAtZero: true,
+              ticks: {
+                color: "#9bb5a6",
+                callback: (value) => `$${Number(value).toFixed(6)}`
+              },
+              grid: {
+                color: "rgba(255,255,255,0.06)"
+              }
+            }
+          }
+        }
+      });
+    } else {
+      console.warn("[TokenSmart Dashboard] Chart.js is unavailable. Chart rendering is skipped, but chat remains functional.");
+    }
+
+    function renderChartFromTotalMoney(totalMoneySaved) {
+      const updatedSeries = updateDailySeriesWithTotal(totalMoneySaved);
+      const { days, values } = buildDailySavingsValuesFromSeries(updatedSeries);
+      if (!savingsChart) {
+        return;
+      }
+      savingsChart.data.labels = days.map((day) => day.slice(5));
+      savingsChart.data.datasets[0].data = values;
+      savingsChart.update();
+    }
+
+    function renderStats(stats) {
+      statsEls.totalCalls.textContent = formatNumber(stats.totalCalls);
+      statsEls.totalSavedTokens.textContent = formatNumber(stats.totalSavedTokens);
+      statsEls.totalMoneySaved.textContent = Number(stats.totalMoneySaved || 0).toFixed(6);
+      statsEls.cacheHitRate.textContent = `${Number(stats.cacheHitRate || 0).toFixed(2)}%`;
+      statsEls.lastRefresh.textContent = `Last refresh: ${new Date().toLocaleTimeString()}`;
+      renderChartFromTotalMoney(stats.totalMoneySaved || 0);
+    }
+
+    async function fetchStats() {
+      try {
+        const response = await fetch("/api/stats", { method: "GET" });
+        if (!response.ok) {
+          throw new Error(`Stats request failed (${response.status})`);
+        }
+        const data = await response.json();
+        renderStats(data);
+      } catch (error) {
+        statsEls.lastRefresh.textContent = `Stats refresh failed: ${error.message}`;
+      }
+    }
+
+    async function sendChatPrompt() {
+      const prompt = chatEls.promptInput.value.trim();
+      chatEls.chatError.textContent = "";
+
+      console.log("[TokenSmart Dashboard] Send clicked.");
+      console.log("[TokenSmart Dashboard] Prompt length:", prompt.length);
+
+      if (!prompt) {
+        chatEls.chatError.textContent = "Prompt is required before sending.";
+        console.warn("[TokenSmart Dashboard] Send blocked because prompt is empty.");
+        return;
+      }
+
+      chatEls.sendBtn.disabled = true;
+      chatEls.chatStatus.textContent = "Sending...";
+
+      try {
+        console.log("[TokenSmart Dashboard] POST /api/chat request started.");
+        const response = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ prompt })
+        });
+
+        const data = await response.json();
+        console.log("[TokenSmart Dashboard] POST /api/chat response status:", response.status);
+        console.log("[TokenSmart Dashboard] POST /api/chat response body:", data);
+
+        if (!response.ok) {
+          throw new Error(data && data.details ? data.details : `Chat request failed (${response.status})`);
+        }
+
+        chatEls.responseBox.textContent = typeof data.response === "string"
+          ? data.response
+          : JSON.stringify(data.response, null, 2);
+
+        const savings = data.savings || {};
+        chatEls.savedTokensValue.textContent = formatNumber(savings.tokensaved || 0);
+        chatEls.modelUsedValue.textContent = savings.modelUsed || "-";
+        chatEls.cacheHitValue.textContent = savings.cacheHit ? "Yes" : "No";
+        chatEls.moneySavedValue.textContent = formatMoney(savings.moneySaved || 0);
+        chatEls.chatStatus.textContent = "Completed";
+
+        fetchStats();
+      } catch (error) {
+        chatEls.chatStatus.textContent = "Failed";
+        chatEls.chatError.textContent = error.message;
+        console.error("[TokenSmart Dashboard] POST /api/chat failed:", error);
+      } finally {
+        chatEls.sendBtn.disabled = false;
+        console.log("[TokenSmart Dashboard] Send flow ended.");
+      }
+    }
+
+    chatEls.sendBtn.addEventListener("click", sendChatPrompt);
+    chatEls.promptInput.addEventListener("keydown", (event) => {
+      if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+        sendChatPrompt();
+      }
+    });
+
+    fetchStats();
+    setInterval(fetchStats, 5000);
+  </script>
+</body>
+</html>

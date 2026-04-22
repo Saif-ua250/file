@@ -1,0 +1,21 @@
+{
+  "name": "tokensmart",
+  "version": "1.0.0",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "AI cost optimization middleware layer with compression, caching, routing, and tracking.",
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "natural": "^8.1.1",
+    "node-cache": "^5.1.2",
+    "similarity": "^1.2.1"
+  }
+}

@@ -1,0 +1,26 @@
+[
+  {
+    "timestamp": "2026-04-22T13:17:48.714Z",
+    "originalTokenCount": 14,
+    "compressedTokenCount": 14,
+    "tokensSavedByCompression": 0,
+    "modelUsed": "gemini-flash-latest",
+    "cacheHit": false,
+    "actualCostOfCall": 0.000042,
+    "estimatedCostWithoutTokenSmart": 0.000042,
+    "moneySaved": 0,
+    "totalSavingsSoFar": 0
+  },
+  {
+    "timestamp": "2026-04-22T13:18:46.060Z",
+    "originalTokenCount": 9,
+    "compressedTokenCount": 9,
+    "tokensSavedByCompression": 0,
+    "modelUsed": "gemini-flash-latest",
+    "cacheHit": false,
+    "actualCostOfCall": 0.000027,
+    "estimatedCostWithoutTokenSmart": 0.000027,
+    "moneySaved": 0,
+    "totalSavingsSoFar": 0
+  }
+]
