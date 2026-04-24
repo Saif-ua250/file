@@ -28,9 +28,11 @@ const dotenvResult = dotenv.config({ path: ENV_PATH, override: true });
 // This sets a simple per-token cost for savings calculations.
 const COST_PER_TOKEN = 0.000003;
 // This defines the model name used for simpler prompts.
-const SIMPLE_MODEL = process.env.DEFAULT_MODEL || "gemini-flash-latest";
+const SIMPLE_MODEL = process.env.DEFAULT_MODEL || "gemini-2.0-flash";
 // This defines the model name used for more complex prompts.
-const COMPLEX_MODEL = process.env.COMPLEX_MODEL || "gemini-flash-latest";
+const COMPLEX_MODEL = process.env.COMPLEX_MODEL || "gemini-2.0-flash";
+// This pins Gemini REST calls to the stable API version.
+const GEMINI_API_VERSION = "v1";
 
 // This creates the Express application instance.
 const app = express();
@@ -118,7 +120,7 @@ async function callGeminiModel({ prompt, systemPrompt, model }) {
 	}
 
 	// This builds ordered model candidates so we can recover from model-id changes.
-	const modelCandidates = [model, "gemini-flash-latest", "gemini-2.0-flash", "gemini-2.0-flash-latest", "gemini-2.0-flash"];
+	const modelCandidates = [model, "gemini-2.0-flash"];
 	// This removes duplicates while preserving candidate order.
 	const uniqueCandidates = [...new Set(modelCandidates.filter(Boolean))];
 
@@ -134,7 +136,7 @@ async function callGeminiModel({ prompt, systemPrompt, model }) {
 				model: candidateModel,
 				// This passes optional system instruction when provided.
 				systemInstruction: systemPrompt || undefined,
-			});
+			}, { apiVersion: GEMINI_API_VERSION });
 
 			// This sends prompt text to Gemini and waits for completion.
 			const result = await modelClient.generateContent(prompt);

@@ -42,8 +42,8 @@ Create a .env file in the project root:
     GEMINI_API_KEY=your_gemini_api_key_here
     CACHE_TTL_SECONDS=86400
     SIMILARITY_THRESHOLD=0.85
-    DEFAULT_MODEL=gemini-flash-latest
-    COMPLEX_MODEL=gemini-flash-latest
+    DEFAULT_MODEL=gemini-2.0-flash
+    COMPLEX_MODEL=gemini-2.0-flash
 
 ### 3. Start the server
 
@@ -76,7 +76,7 @@ Success response:
       "savings": {
         "tokensaved": 42,
         "moneySaved": 0.000126,
-        "modelUsed": "gemini-flash-latest",
+        "modelUsed": "gemini-2.0-flash",
         "cacheHit": false
       }
     }
