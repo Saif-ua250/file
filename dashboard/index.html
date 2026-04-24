@@ -562,6 +562,7 @@
     async function sendChatPrompt() {
       const prompt = chatEls.promptInput.value.trim();
       chatEls.chatError.textContent = "";
+      chatEls.chatStatus.textContent = "";
 
       console.log("[TokenSmart Dashboard] Send clicked.");
       console.log("[TokenSmart Dashboard] Prompt length:", prompt.length);
@@ -588,6 +589,12 @@
         console.log("[TokenSmart Dashboard] POST /api/chat response body:", data);
 
         if (!response.ok) {
+          if (response.status === 429) {
+            chatEls.chatStatus.textContent = "Rate limited right now. Trying fallback models or retry shortly.";
+            chatEls.chatError.textContent = "";
+            return;
+          }
+
           throw new Error(data && data.details ? data.details : `Chat request failed (${response.status})`);
         }
 
@@ -600,7 +607,7 @@
         chatEls.modelUsedValue.textContent = savings.modelUsed || "-";
         chatEls.cacheHitValue.textContent = savings.cacheHit ? "Yes" : "No";
         chatEls.moneySavedValue.textContent = formatMoney(savings.moneySaved || 0);
-        chatEls.chatStatus.textContent = "Completed";
+        chatEls.chatStatus.textContent = data.statusMessage || "Completed";
 
         fetchStats();
       } catch (error) {

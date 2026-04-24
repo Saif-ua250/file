@@ -32,7 +32,12 @@ const SIMPLE_MODEL = process.env.DEFAULT_MODEL || "gemini-2.0-flash";
 // This defines the model name used for more complex prompts.
 const COMPLEX_MODEL = process.env.COMPLEX_MODEL || "gemini-2.0-flash";
 // This pins Gemini REST calls to the stable API version.
-const GEMINI_API_VERSION = "v1";
+const GEMINI_API_VERSION = "v1beta";
+// This controls how long a rate-limited model stays on local cooldown.
+const MODEL_RATE_LIMIT_COOLDOWN_MS = 120000;
+
+// This tracks temporary cooldown windows for recently rate-limited models.
+const modelCooldownUntilMs = new Map();
 
 // This creates the Express application instance.
 const app = express();
@@ -109,6 +114,16 @@ function createGeminiClient() {
 	return new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 }
 
+// This checks whether a Gemini error is a rate-limit response.
+function isRateLimitError(error) {
+	// This reads the HTTP status from the SDK error when available.
+	const status = error && typeof error.status === "number" ? error.status : error && error.response && typeof error.response.status === "number" ? error.response.status : null;
+	// This reads the error message for fallback matching.
+	const message = error && error.message ? String(error.message) : "";
+	// This treats 429s and rate-limit messages as retryable quota errors.
+	return status === 429 || /429|too many requests|rate limit/i.test(message);
+}
+
 // This helper calls Gemini and returns plain response text.
 async function callGeminiModel({ prompt, systemPrompt, model }) {
 	// This creates the Gemini client instance.
@@ -119,51 +134,105 @@ async function callGeminiModel({ prompt, systemPrompt, model }) {
 		throw new Error("Missing GEMINI_API_KEY environment variable.");
 	}
 
-	// This builds ordered model candidates so we can recover from model-id changes.
-	const modelCandidates = [model, "gemini-2.0-flash"];
+	// This builds ordered model candidates so we can recover from model-id and quota issues.
+	const modelCandidates = [model, "gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-flash-8b", "gemini-flash-latest"];
 	// This removes duplicates while preserving candidate order.
-	const uniqueCandidates = [...new Set(modelCandidates.filter(Boolean))];
+	const dedupedCandidates = [...new Set(modelCandidates.filter(Boolean))];
+	// This removes candidates currently on cooldown due to recent rate-limit responses.
+	const uniqueCandidates = dedupedCandidates.filter((candidate) => {
+		const cooldownUntil = modelCooldownUntilMs.get(candidate) || 0;
+		return cooldownUntil <= Date.now();
+	});
+	// This falls back to the full list if every model is currently on cooldown.
+	const candidateList = uniqueCandidates.length > 0 ? uniqueCandidates : dedupedCandidates;
 
 	// This tracks the last error in case all candidates fail.
 	let lastError = null;
+	// This tracks whether any candidate hit a rate limit during attempts.
+	let hadRateLimit = false;
+	// This tracks whether a fallback model was needed to continue.
+	let usedFallbackModel = false;
 
 	// This attempts each model candidate until one works.
-	for (const candidateModel of uniqueCandidates) {
-		try {
-			// This creates a model-scoped client with optional system instruction.
-			const modelClient = client.getGenerativeModel({
-				// This sets the current candidate model for this attempt.
-				model: candidateModel,
-				// This passes optional system instruction when provided.
-				systemInstruction: systemPrompt || undefined,
-			}, { apiVersion: GEMINI_API_VERSION });
+	for (const candidateModel of candidateList) {
+		// This marks whether we are trying a fallback candidate instead of the first choice.
+		const isFallbackCandidate = candidateModel !== candidateList[0];
+		// This keeps trying the current candidate until it succeeds or fails for a non-retryable reason.
+		while (true) {
+			try {
+				// This creates a model-scoped client with optional system instruction.
+				const modelClient = client.getGenerativeModel({
+					// This sets the current candidate model for this attempt.
+					model: candidateModel,
+					// This passes optional system instruction when provided.
+					systemInstruction: systemPrompt || undefined,
+				}, { apiVersion: GEMINI_API_VERSION });
 
-			// This sends prompt text to Gemini and waits for completion.
-			const result = await modelClient.generateContent(prompt);
-			// This extracts plain text from Gemini response.
-			const text = result && result.response && typeof result.response.text === "function" ? result.response.text() : "";
-			// This returns text when available and ends the retry loop.
-			if (text) {
-				return text;
+				// This sends prompt text to Gemini and waits for completion.
+				const result = await modelClient.generateContent(prompt);
+				// This extracts plain text from Gemini response.
+				const text = result && result.response && typeof result.response.text === "function" ? result.response.text() : "";
+				// This returns text when available and ends the retry loop.
+				if (text) {
+					return {
+						// This returns the model text that will be sent to the client.
+						text,
+						// This reports the exact model that returned this response.
+						modelUsed: candidateModel,
+						// This preserves a friendly status message for the dashboard.
+						retryNotice: isFallbackCandidate
+							? `Primary model was rate limited. Switched to ${candidateModel}.`
+							: hadRateLimit
+								? "Rate limited, switched to an available model."
+								: "",
+					};
+				}
+				// This returns a safe fallback when response has no text.
+				return {
+					// This returns a safe fallback when response has no text.
+					text: "No response text returned by model.",
+					// This reports the exact model that returned this response.
+					modelUsed: candidateModel,
+					// This preserves a friendly status message for the dashboard.
+					retryNotice: isFallbackCandidate
+						? `Primary model was rate limited. Switched to ${candidateModel}.`
+						: hadRateLimit
+							? "Rate limited, switched to an available model."
+							: "",
+				};
+			} catch (error) {
+				// This stores the latest error for potential final throw.
+				lastError = error;
+				// This falls back to the next model immediately when current model is rate limited.
+				if (isRateLimitError(error)) {
+					hadRateLimit = true;
+					usedFallbackModel = true;
+					modelCooldownUntilMs.set(candidateModel, Date.now() + MODEL_RATE_LIMIT_COOLDOWN_MS);
+					console.warn(`[TokenSmart] ${candidateModel} is rate limited; trying next model candidate.`);
+					break;
+				}
+				// This checks if the failure likely indicates unsupported/missing model id.
+				const message = error && error.message ? String(error.message) : "";
+				const isModelIdIssue = /not found|not supported|models\//i.test(message);
+				// This retries next candidate only for model-id issues.
+				if (isModelIdIssue) {
+					break;
+				}
+				// This rethrows non-model-id failures immediately.
+				throw error;
 			}
-			// This returns a safe fallback when response has no text.
-			return "No response text returned by model.";
-		} catch (error) {
-			// This stores the latest error for potential final throw.
-			lastError = error;
-			// This checks if the failure likely indicates unsupported/missing model id.
-			const message = error && error.message ? String(error.message) : "";
-			const isModelIdIssue = /not found|not supported|models\//i.test(message);
-			// This retries next candidate only for model-id issues.
-			if (isModelIdIssue) {
-				continue;
-			}
-			// This rethrows non-model-id failures immediately.
-			throw error;
 		}
 	}
 
-	// This throws the last captured error if all candidates failed.
+	// This throws a clear rate-limit failure when every candidate was exhausted by quota.
+	if (hadRateLimit) {
+		const rateLimitError = new Error("All configured Gemini model candidates are currently rate limited.");
+		rateLimitError.status = 429;
+		rateLimitError.usedFallbackModel = usedFallbackModel;
+		throw rateLimitError;
+	}
+
+	// This throws the last captured error if all candidates failed for other reasons.
 	throw lastError || new Error("Gemini call failed for all model candidates.");
 }
 
@@ -248,7 +317,7 @@ app.post("/api/chat", async (req, res) => {
 		// This logs which model routing selected.
 		console.log(`[TokenSmart] Model selected: ${modelUsed}`);
 		// This calls Gemini with compressed prompt and optional system prompt.
-		const responseText = await callGeminiModel({
+		const geminiResult = await callGeminiModel({
 			// This sends the compressed prompt to lower token usage.
 			prompt: compression.compressedPrompt,
 			// This forwards optional system guidance unchanged.
@@ -256,8 +325,12 @@ app.post("/api/chat", async (req, res) => {
 			// This uses the selected model from routing logic.
 			model: modelUsed,
 		});
+		// This reads the generated text from the Gemini result.
+		const responseText = geminiResult.text;
+		// This stores the actual model that produced the response.
+		const actualModelUsed = geminiResult.modelUsed || modelUsed;
 		// This logs response size from the model call.
-		console.log(`[TokenSmart] Model response length: ${responseText.length}`);
+		console.log(`[TokenSmart] Model response length: ${responseText.length} (model: ${actualModelUsed})`);
 
 		// This stores the response against compressed prompt for future cache hits.
 		storeResponse(compression.compressedPrompt, responseText);
@@ -276,7 +349,7 @@ app.post("/api/chat", async (req, res) => {
 			// This stores token savings from compression.
 			tokensSavedByCompression: compression.savedTokens,
 			// This stores selected model for analytics.
-			modelUsed,
+			modelUsed: actualModelUsed,
 			// This marks this request as a non-cache path.
 			cacheHit: false,
 			// This stores estimated actual spend for this call.
@@ -289,6 +362,8 @@ app.post("/api/chat", async (req, res) => {
 		return res.json({
 			// This returns the generated AI response text.
 			response: responseText,
+			// This preserves a friendly dashboard notice when a rate-limit retry happened.
+			statusMessage: geminiResult.retryNotice || "",
 			// This groups savings and path details under one object.
 			savings: {
 				// This returns tokens saved by prompt compression.
@@ -296,7 +371,7 @@ app.post("/api/chat", async (req, res) => {
 				// This returns money saved for this single call.
 				moneySaved: logged.moneySaved,
 				// This returns which model was selected by router logic.
-				modelUsed,
+				modelUsed: actualModelUsed,
 				// This confirms this was not a cache hit.
 				cacheHit: false,
 			},
@@ -304,6 +379,15 @@ app.post("/api/chat", async (req, res) => {
 	} catch (error) {
 		// This logs the full error for server-side debugging.
 		console.error("[TokenSmart] /api/chat failed:", error);
+		// This returns a friendly 429 response when Gemini rate-limits even after retrying.
+		if (isRateLimitError(error)) {
+			return res.status(429).json({
+				// This gives the dashboard a user-friendly rate-limit notice.
+				error: "Rate limited across all model candidates.",
+				// This provides a clearer explanation for developers and users.
+				details: "All configured Gemini models are currently rate limited. Please try again shortly.",
+			});
+		}
 		// This returns a consistent server error response on failures.
 		return res.status(500).json({
 			// This provides a stable error label for clients.

@@ -81,6 +81,12 @@ Success response:
       }
     }
 
+Rate limiting behavior:
+
+- If Gemini returns a 429 rate-limit error, TokenSmart immediately tries fallback models.
+- Recently rate-limited models are put on a short local cooldown so subsequent requests stay fast.
+- The dashboard shows a friendly fallback/rate-limit status instead of a raw error.
+
 Error response:
 
     {
