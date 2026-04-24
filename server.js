@@ -118,7 +118,7 @@ async function callGeminiModel({ prompt, systemPrompt, model }) {
 	}
 
 	// This builds ordered model candidates so we can recover from model-id changes.
-	const modelCandidates = [model, "gemini-flash-latest", "gemini-2.0-flash", "gemini-1.5-flash-latest", "gemini-1.5-flash"];
+	const modelCandidates = [model, "gemini-flash-latest", "gemini-2.0-flash", "gemini-2.0-flash-latest", "gemini-2.0-flash"];
 	// This removes duplicates while preserving candidate order.
 	const uniqueCandidates = [...new Set(modelCandidates.filter(Boolean))];
 
