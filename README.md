@@ -49,8 +49,7 @@ Create a .env file in the project root:
 
     node server.js
 
-Server URL: http://localhost:3000  
-Dashboard URL: http://localhost:3000/
+
 
 ## API Documentation
 
